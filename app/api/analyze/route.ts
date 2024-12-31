@@ -7,6 +7,38 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+async function searchOpenFoodFacts(productName: string) {
+  try {
+    const response = await fetch(
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(productName)}&json=1`
+    );
+    
+    const data = await response.json();
+    
+    if (data.products && data.products.length > 0) {
+      const product = data.products[0]; // Get the first (most relevant) result
+      return {
+        name: product.product_name,
+        brand: product.brands,
+        nutritionGrade: product.nutrition_grade_fr,
+        ingredients: product.ingredients_text,
+        nutrients: {
+          calories: product.nutriments['energy-kcal_100g'],
+          proteins: product.nutriments.proteins_100g,
+          carbohydrates: product.nutriments.carbohydrates_100g,
+          fat: product.nutriments.fat_100g,
+          fiber: product.nutriments.fiber_100g,
+        },
+        imageUrl: product.image_url,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching from Open Food Facts:', error);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -24,7 +56,7 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(bytes);
     const base64Image = buffer.toString('base64');
 
-    // Call OpenAI API
+    // Call OpenAI Vision API
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -50,7 +82,13 @@ export async function POST(req: Request) {
 
     const productName = response.choices[0].message.content;
 
-    return NextResponse.json({ productName });
+    // Search Open Food Facts database
+    const productData = await searchOpenFoodFacts(productName as string);
+
+    return NextResponse.json({ 
+      productName,
+      productData: productData || { message: 'No product details found in database' }
+    });
 
   } catch (error) {
     console.error('Error processing image:', error);
