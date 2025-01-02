@@ -104,7 +104,7 @@ async function analyzeProductWithAI(base64Image: string, imageType: string) {
     response_format: { type: "json_object" }
   });
 
-  return JSON.parse(response.choices[0].message.content);
+  return JSON.parse(response.choices[0].message.content || '{}');
 }
 
 async function findBestMatchByImage(uploadedImageBase64: string, imageType: string, products: any[]) {
@@ -130,7 +130,7 @@ async function findBestMatchByImage(uploadedImageBase64: string, imageType: stri
             image_url: {
               url: `data:${imageType};base64,${uploadedImageBase64}`
             }
-          },
+          } as any,
           ...productsWithImages.map(product => ({
             type: "image_url",
             image_url: {
